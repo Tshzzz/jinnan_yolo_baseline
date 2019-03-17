@@ -92,14 +92,14 @@ if __name__ == '__main__':
     featmap_size = config.YOLO['featmap_size']
 
 
-    model = build_yolo(config.YOLO['class_num'], anchor_wh, train = False)
+    model = build_yolo(config.YOLO['class_num'], anchor_wh, featmap_size, train = False)
 
     annFile = './datasets/jinnan2_round1_train_20190305/jinnan_round1_val.json'
 
 
     dataset = COCODataset(annFile,'{}restricted/'.format(config.datasets_path),True,False,transform,None)
 
-    model.load_state_dict(torch.load('best_.pkl'))
+    model.load_state_dict(torch.load('608/model_190.pkl'))
     model.cuda()
     model.eval()
 
