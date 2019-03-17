@@ -12,7 +12,7 @@ import tqdm
 
 torch.backends.cudnn.benchmark = True
 
-test_path = './datasets/jinnan2_round1_train_20190305/restricted'
+test_path = '../datasets/round1/test2'
 
 filename = os.listdir(test_path)
 print(len(filename))
