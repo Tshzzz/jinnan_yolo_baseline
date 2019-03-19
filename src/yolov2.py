@@ -5,16 +5,16 @@
 """
 import torch
 import torch.nn as nn
-from src.layers import conv_sets,pred_module,up_sample
+from src.layers import conv_sets,pred_module
 from src.box_coder import yolo_box_decoder,gen_yolo_box
-from src.loss import yolov2_loss
+from src.loss import yolo_loss
 from src.darknet53 import darknet53
 
 
-class YOLO(nn.Module):
+class YOLOv2(nn.Module):
 
     def __init__(self, basenet, anchor, train,featmap_size ,cls_num=20):
-        super(YOLO, self).__init__()
+        super(YOLOv2, self).__init__()
         self.cls_num = cls_num
         self.feature = basenet
         self.bbox_num = len(anchor)
@@ -24,7 +24,7 @@ class YOLO(nn.Module):
 
         self.training = train
         if self.training:
-            self.loss = yolov2_loss(anchor,featmap_size)
+            self.loss = yolo_loss(anchor,featmap_size)
         else:
             self.decoder = yolo_box_decoder(anchor, cls_num , featmap_size)
 
@@ -46,18 +46,18 @@ class YOLO(nn.Module):
             return pred
 
 
-def build_yolo(cls_num, anchor, featmap_size,train =False,pretrained=None):
+def build_yolov2(cls_num, anchor, featmap_size,train =False,pretrained=None):
 
     basenet = darknet53()
     basenet.load_weight(pretrained)
-    net = YOLO(basenet, anchor, train,featmap_size,cls_num)
+    net = YOLOv2(basenet, anchor, train,featmap_size,cls_num)
 
     return net
 
 
 if __name__ == '__main__':
 
-    net = build_yolo(5, 5, 'darknet53.conv.74')
+    net = build_yolov2(5, 5, 'darknet53.conv.74')
 
     data = torch.randn(1, 3, 608, 608)
 

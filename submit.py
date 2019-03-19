@@ -2,7 +2,7 @@ import os
 import config
 from torchvision import transforms
 
-from src import build_yolo
+from src import build_yolov2
 
 from PIL import Image
 import torch
@@ -28,7 +28,7 @@ featmap_size = config.YOLO['featmap_size']
 
 
 
-model = build_yolo(config.YOLO['class_num'], anchor_wh, featmap_size,train = False)
+model = build_yolov2(config.YOLO['class_num'], anchor_wh, featmap_size,train = False)
 
 model.load_state_dict(torch.load('608/model_190.pkl'))
 model.cuda()

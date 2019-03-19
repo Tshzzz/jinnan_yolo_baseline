@@ -1,6 +1,8 @@
 from src import COCODataset
 from src import yolo_box_encoder
 from src import yolo_box_decoder
+from src import group_decoder,group_encoder
+
 
 from torchvision import transforms
 
@@ -11,7 +13,7 @@ from torch.utils import data
 import json
 
 if __name__=="__main__":
-
+    import numpy as np
 
     transform = transforms.Compose([
         transforms.Resize([416, 416]),
@@ -21,6 +23,7 @@ if __name__=="__main__":
 
     annFile = '../datasets/jinnan2_round1_train_20190305/train_no_poly.json'
 
+    '''
     anchor_wh = [[2.8523827,2.4452496 ],
              [1.3892268,1.8958333 ],
              [1.6490009,0.95596665],
@@ -30,6 +33,26 @@ if __name__=="__main__":
     featmap_size = [13,13]
     encoder = yolo_box_encoder(anchor_wh , 5, featmap_size)
     decoder = yolo_box_decoder(anchor_wh , 5, featmap_size)
+    '''
+    '''
+    anchor_big = np.array([[116, 90], [156, 198], [373, 326]]) / 32
+    anchor_medium = np.array([[30,61],  [62,45],  [59,119]]) / 16
+    anchor_small = np.array([[10,13],  [16,30],  [33,23]]) / 8
+    anchor_wh = [anchor_big, anchor_medium, anchor_small]  
+    '''
+
+    feat_size = 19
+    anchor_big = np.array([[7.26, 5.83], [2.80, 6.07], [4, 3.59]]) / (32 * feat_size)
+    anchor_medium = np.array([[4.73,1.96],  [1.95,2.52],  [1.22,3.32]]) / (16 * 2 * feat_size)
+    anchor_small = np.array([[2.53,1.31],  [1.36,1.07],  [0.685,2.01]]) / (8 * 4 * feat_size)
+    anchor_wh = [anchor_big, anchor_medium, anchor_small]
+
+
+    featmap_size = [[feat_size,feat_size],[feat_size*2,feat_size*2],[feat_size*4,feat_size*4]]
+
+    encoder = group_encoder(anchor_wh , 5, featmap_size)
+    decoder = group_decoder(anchor_wh , 5, featmap_size,nms_thresh=0.9)
+
 
     dataset = COCODataset(annFile,'../datasets/jinnan2_round1_train_20190305/restricted/',True,False,transform,encoder)
     data_loader = data.DataLoader(dataset=dataset,
@@ -46,10 +69,10 @@ if __name__=="__main__":
 
 
         for j in range(len(pred_boxes)):
-            x1 = int(pred_boxes[j,0]*width)
-            y1 = int(pred_boxes[j,1]*height)
-            w =  int(pred_boxes[j,2]*width)
-            h =  int(pred_boxes[j,3]*height)
+            x1 = round(pred_boxes[j,0]*width)
+            y1 = round(pred_boxes[j,1]*height)
+            w =  round(pred_boxes[j,2]*width)
+            h =  round(pred_boxes[j,3]*height)
 
             dict = {
                 'image_id': int(img_id.numpy()[0]),

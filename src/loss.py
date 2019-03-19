@@ -9,9 +9,9 @@ import torch.nn as nn
 import numpy as np
 from src.box_coder import gen_yolo_box
 
-class yolov2_loss(nn.Module):
+class yolo_loss(nn.Module):
     def __init__(self, anchor,featmap_size, l_coord=3, object_scale=5, noobject_scale=1):
-        super(yolov2_loss, self).__init__()
+        super(yolo_loss, self).__init__()
 
         self.l_coord = l_coord
         self.object_scale = object_scale
@@ -58,7 +58,8 @@ class yolov2_loss(nn.Module):
 
         featmap_size = [pred_bboxes.shape[1],pred_bboxes.shape[2]]
         #print('featmap_size{}',format(featmap_size))
-
+        #print(label_bboxes.shape)
+        #print(pred_bboxes.shape)
         device = pred_bboxes.device
         label_cls = label_cls.type_as(pred_cls).to(device)
         label_conf = label_conf.type_as(pred_conf).to(device)
@@ -133,7 +134,10 @@ class yolov2_loss(nn.Module):
 
 
         loss_neg_conf = self.mse_loss(p_neg_conf, t_neg_conf) * self.noobject_scale / batch_size
-        loss_cls = self.cls_loss(p_pos_cls, t_pos_cls.argmax(-1)) / batch_size
+
+        loss_cls = self.bce_loss(p_pos_cls, t_pos_cls) / batch_size
+        #loss_cls = self.cls_loss(p_pos_cls, t_pos_cls.argmax(-1)) / batch_size
+
         loss_x = self.mse_loss(p_pos_box[:, 0], t_pos_box[:, 0]) * self.l_coord / batch_size
         loss_y = self.mse_loss(p_pos_box[:, 1], t_pos_box[:, 1]) * self.l_coord / batch_size
         loss_w = self.smooth_l1_loss(p_pos_box[:, 2], t_pos_box[:, 2]) * self.l_coord / batch_size

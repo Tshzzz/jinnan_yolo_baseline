@@ -64,6 +64,35 @@ class pred_module(nn.Module):
 
         return pred
 
+class pred_module_v3(nn.Module):
+    def __init__(self,inplance,plance,cls_num,bbox_num):
+        super(pred_module_v3,self).__init__()
+
+        self.cls_num = cls_num
+        self.bbox_num = bbox_num
+        self.extra_layer = conv_block(inplance, plance, 3,stride=1,pad=1)
+        self.detect_layer = nn.Conv2d(plance, (self.cls_num + 5) * self.bbox_num, 1, stride=1, padding=0, bias=True)
+
+    def forward(self, x):
+
+        feat_size = x.shape[-1]
+        B = x.shape[0]
+
+        x = self.extra_layer(x)
+        prediction = self.detect_layer(x)
+        prediction = prediction.view(B, (5+self.cls_num) * self.bbox_num, feat_size * feat_size)
+        prediction = prediction.transpose(1, 2).contiguous()
+        prediction = prediction.view(B, feat_size , feat_size , self.bbox_num, 5+self.cls_num)
+
+        pred_cls = prediction[:,:,:,:,5:].sigmoid()
+        pred_loc = prediction[:,:,:,:,0:4]
+        pred_loc[:,:,:,:,0:2] = pred_loc[:,:,:,:,0:2].sigmoid()
+
+        pred_conf = prediction[:,:,:,:,4].view(B, feat_size , feat_size , self.bbox_num, -1).sigmoid()
+        pred = (pred_cls,pred_conf,pred_loc)
+
+        return pred
+
 
 class conv_sets(nn.Module):
     def __init__(self, inplance, plance, outplance):

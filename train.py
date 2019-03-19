@@ -1,6 +1,9 @@
-from src import build_yolo
-from src import yolo_box_encoder
+from src import build_yolov2
+from src import yolo_box_encoder,group_encoder
 from src import COCODataset
+from src import build_yolov3
+
+
 from torchvision import transforms
 import config
 import torch.utils.data as data
@@ -25,14 +28,22 @@ if __name__ == '__main__':
     anchor_wh = config.YOLO['anchor']
     featmap_size = config.YOLO['featmap_size']
     pretrained = config.YOLO['pretrain_model']
+    epochs_start = config.epochs_start
 
 
 
-
-    net = build_yolo(config.YOLO['class_num'], anchor_wh, featmap_size,train = True,pretrained=pretrained)
+    #net = build_yolov3(config.YOLO['class_num'], anchor_wh, featmap_size,train = True,pretrained=pretrained)
+    net = build_yolov2(config.YOLO['class_num'], anchor_wh, featmap_size, train=True, pretrained=pretrained)
     net.cuda()
     net.train()
+
+
+
+    if epochs_start > 0:
+        net.load_state_dict(torch.load(config.save_dir + 'model_.pkl'))
+
     encoder = yolo_box_encoder(anchor_wh, config.YOLO['class_num'], featmap_size)
+    #encoder = group_encoder(anchor_wh, config.YOLO['class_num'], featmap_size)
 
     train_dataset = COCODataset('{}/jinnan_round1_train.json'.format(config.datasets_path),
                                     '{}/restricted/'.format(config.datasets_path),
@@ -48,7 +59,7 @@ if __name__ == '__main__':
     logger = SummaryWriter(config.save_dir)
 
     step = 0
-    for epoch in range(0, 300):
+    for epoch in range(epochs_start, 300):
         epoch_loss = 0
         train_iterator = tqdm(train_loader, ncols=30)
         mulit_batch_ = 0
@@ -81,3 +92,4 @@ if __name__ == '__main__':
         if epoch > 100 and epoch % 2 == 0:
             torch.save(net.state_dict(), config.save_dir  + "model_{}.pkl".format(epoch))
 
+        torch.save(net.state_dict(), config.save_dir + "model_.pkl")

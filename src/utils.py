@@ -7,6 +7,18 @@
 import torch
 import numpy as np
 
+def load_conv(buf, start, conv_model):
+    num_w = conv_model.weight.numel()
+    num_b = conv_model.bias.numel()
+
+    conv_model.bias.data.copy_(torch.from_numpy(buf[start:start + num_b]).view_as(conv_model.bias));
+    start = start + num_b
+
+    conv_model.weight.data.copy_(torch.from_numpy(buf[start:start + num_w]).view_as(conv_model.weight));
+    start = start + num_w
+
+    return start
+
 def load_conv_bn(buf, start, conv_model, bn_model):
     num_w = conv_model.weight.numel()
 

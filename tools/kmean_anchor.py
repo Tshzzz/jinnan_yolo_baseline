@@ -121,11 +121,11 @@ if __name__ == '__main__':
         data = torch.cat((data, label[label_mask]), 0)
 
     data = data[1:, :]
-    data = data[:, 2:4] * 13
+    data = data[:, 2:4]
 
     data = data.numpy()
 
-    out = kmeans(data, k=5)
+    out = kmeans(data, k=9)
     print("Accuracy: {:.2f}%".format(avg_iou(data, out) * 100))
     print("Boxes:\n {}".format(out))
 
@@ -133,4 +133,5 @@ if __name__ == '__main__':
     print("Ratios:\n {}".format(sorted(ratios)))
 
     out = np.array(out)
-
+    s = out[:,0] * out[:,1]
+    print(s)
