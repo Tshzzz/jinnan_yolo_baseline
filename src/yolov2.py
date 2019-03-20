@@ -40,9 +40,7 @@ class YOLOv2(nn.Module):
 
         if self.detect:
             pred_cls, pred_conf, pred_bboxes = pred
-            print(pred_cls.shape)
             pred_cls = torch.nn.functional.softmax(pred_cls.float(), dim=-1)
-            print(pred_cls.shape)
             pred = self.decoder((pred_cls, pred_conf, pred_bboxes))
             return pred
         else:

@@ -105,7 +105,7 @@ class yolo_box_decoder(object):
 
 
         pred_cls = pred_cls.cpu().float().view(-1,self.class_num)
-        pred_conf = pred_conf.cpu().float().view(-1,1)#.sigmoid()
+        pred_conf = pred_conf.cpu().float().view(-1,1)
         pred_bboxes = pred_bboxes.cpu().float().view(-1,4)
         anchor = self.anchor.repeat(1, 1, 1, 1, 1).cpu().view(-1,4)
 
