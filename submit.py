@@ -28,9 +28,9 @@ featmap_size = config.YOLO['featmap_size']
 
 
 
-model = build_yolov2(config.YOLO['class_num'], anchor_wh, featmap_size,train = False)
+model = build_yolov2(config.YOLO['class_num'], anchor_wh, featmap_size,do_detect = True)
 
-model.load_state_dict(torch.load('608/model_190.pkl'))
+model.load_state_dict(torch.load('608/model_290.pkl'))
 model.cuda()
 model.eval()
 

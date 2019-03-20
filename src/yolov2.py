@@ -13,7 +13,7 @@ from src.darknet53 import darknet53
 
 class YOLOv2(nn.Module):
 
-    def __init__(self, basenet, anchor, train,featmap_size ,cls_num=20):
+    def __init__(self, basenet, anchor, do_detect,featmap_size ,cls_num=20):
         super(YOLOv2, self).__init__()
         self.cls_num = cls_num
         self.feature = basenet
@@ -22,11 +22,13 @@ class YOLOv2(nn.Module):
         self.detector = pred_module(512, self.cls_num, self.bbox_num)
 
 
-        self.training = train
-        if self.training:
-            self.loss = yolo_loss(anchor,featmap_size)
+        self.detect = do_detect
+
+
+        if self.detect:
+            self.decoder = yolo_box_decoder(anchor, cls_num, featmap_size)
         else:
-            self.decoder = yolo_box_decoder(anchor, cls_num , featmap_size)
+            self.loss = yolo_loss(anchor, featmap_size)
 
     def forward(self, x , target =None):
 
@@ -36,21 +38,22 @@ class YOLOv2(nn.Module):
 
         pred = self.detector(layer1)
 
-        if self.training:
-            loss,loss_info = self.loss(pred,target)
-            return loss,loss_info
-        else:
+        if self.detect:
             pred_cls, pred_conf, pred_bboxes = pred
+            print(pred_cls.shape)
             pred_cls = torch.nn.functional.softmax(pred_cls.float(), dim=-1)
+            print(pred_cls.shape)
             pred = self.decoder((pred_cls, pred_conf, pred_bboxes))
             return pred
+        else:
+            loss,loss_info = self.loss(pred,target)
+            return loss,loss_info
 
-
-def build_yolov2(cls_num, anchor, featmap_size,train =False,pretrained=None):
+def build_yolov2(cls_num, anchor, featmap_size,do_detect =True,pretrained=None):
 
     basenet = darknet53()
     basenet.load_weight(pretrained)
-    net = YOLOv2(basenet, anchor, train,featmap_size,cls_num)
+    net = YOLOv2(basenet, anchor, do_detect,featmap_size,cls_num)
 
     return net
 

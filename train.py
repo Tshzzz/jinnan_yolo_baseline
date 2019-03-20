@@ -32,15 +32,16 @@ if __name__ == '__main__':
 
 
 
-    #net = build_yolov3(config.YOLO['class_num'], anchor_wh, featmap_size,train = True,pretrained=pretrained)
-    net = build_yolov2(config.YOLO['class_num'], anchor_wh, featmap_size, train=True, pretrained=pretrained)
+    #net = build_yolov3(config.YOLO['class_num'], anchor_wh, featmap_size,do_detect = False,pretrained=pretrained)
+    net = build_yolov2(config.YOLO['class_num'], anchor_wh, featmap_size, do_detect=False, pretrained=pretrained)
+    if epochs_start > 0:
+        net.load_state_dict(torch.load(config.save_dir + 'model_208.pkl'))
     net.cuda()
     net.train()
 
 
 
-    if epochs_start > 0:
-        net.load_state_dict(torch.load(config.save_dir + 'model_.pkl'))
+
 
     encoder = yolo_box_encoder(anchor_wh, config.YOLO['class_num'], featmap_size)
     #encoder = group_encoder(anchor_wh, config.YOLO['class_num'], featmap_size)
@@ -55,7 +56,7 @@ if __name__ == '__main__':
                              num_workers=8)
 
     optimizer = optim.SGD(net.parameters(), lr=config.start_lr, momentum=0.9, weight_decay=5e-4)
-    scheduler = MultiStepLR(optimizer, milestones=[30,200], gamma=0.1)
+    scheduler = MultiStepLR(optimizer, milestones=[200], gamma=0.1)
     logger = SummaryWriter(config.save_dir)
 
     step = 0
@@ -89,7 +90,7 @@ if __name__ == '__main__':
 
         scheduler.step()
 
-        if epoch > 100 and epoch % 2 == 0:
+        if epoch > 100 and epoch % 5 == 0:
             torch.save(net.state_dict(), config.save_dir  + "model_{}.pkl".format(epoch))
 
         torch.save(net.state_dict(), config.save_dir + "model_.pkl")

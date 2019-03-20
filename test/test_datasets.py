@@ -34,17 +34,17 @@ if __name__=="__main__":
     encoder = yolo_box_encoder(anchor_wh , 5, featmap_size)
     decoder = yolo_box_decoder(anchor_wh , 5, featmap_size)
     '''
-    '''
-    anchor_big = np.array([[116, 90], [156, 198], [373, 326]]) / 32
-    anchor_medium = np.array([[30,61],  [62,45],  [59,119]]) / 16
-    anchor_small = np.array([[10,13],  [16,30],  [33,23]]) / 8
-    anchor_wh = [anchor_big, anchor_medium, anchor_small]  
-    '''
 
     feat_size = 19
-    anchor_big = np.array([[7.26, 5.83], [2.80, 6.07], [4, 3.59]]) / (32 * feat_size)
-    anchor_medium = np.array([[4.73,1.96],  [1.95,2.52],  [1.22,3.32]]) / (16 * 2 * feat_size)
-    anchor_small = np.array([[2.53,1.31],  [1.36,1.07],  [0.685,2.01]]) / (8 * 4 * feat_size)
+    '''
+    anchor_big = np.array([[116, 90], [156, 198], [373, 326]]) / 32 #* feat_size
+    anchor_medium = np.array([[30,61],  [62,45],  [59,119]]) / 16 #* feat_size
+    anchor_small = np.array([[10,13],  [16,30],  [33,23]]) / 8 # / feat_size
+    anchor_wh = [anchor_big, anchor_medium, anchor_small]
+    '''
+    anchor_big = np.array([[0.127, 0.158],  [0.1574, 0.068],  [0.0452, 0.085]]) * ( feat_size)
+    anchor_medium = np.array([[0.0643, 0.189],  [0.249, 0.184],  [0.0217, 0.0628]]) * (2 * feat_size)
+    anchor_small = np.array([[0.0869, 0.0976],  [0.077, 0.0485],  [0.0461 , 0.0282]]) * (4 * feat_size)
     anchor_wh = [anchor_big, anchor_medium, anchor_small]
 
 

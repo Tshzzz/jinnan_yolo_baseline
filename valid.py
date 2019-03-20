@@ -62,7 +62,6 @@ def test_result(model, dataset):
 
             result.append(dict)
 
-
     with open("./coco_valid.json", 'w', encoding='utf-8') as json_file:
         json.dump(result, json_file, ensure_ascii=False)
 
@@ -92,14 +91,14 @@ if __name__ == '__main__':
     featmap_size = config.YOLO['featmap_size']
 
 
-    model = build_yolov2(config.YOLO['class_num'], anchor_wh, featmap_size, train = False)
-    #model = build_yolov3(config.YOLO['class_num'], anchor_wh, featmap_size, train=False)
+    model = build_yolov2(config.YOLO['class_num'], anchor_wh, featmap_size, do_detect = True)
+    #model = build_yolov3(config.YOLO['class_num'], anchor_wh, featmap_size, do_detect = True)
     annFile = './datasets/jinnan2_round1_train_20190305/jinnan_round1_val.json'
 
 
     dataset = COCODataset(annFile,'{}restricted/'.format(config.datasets_path),True,False,transform,None)
 
-    model.load_state_dict(torch.load('YOLOV3/model_.pkl'))
+    model.load_state_dict(torch.load('608/model_290.pkl'))
     model.cuda()
     model.eval()
 

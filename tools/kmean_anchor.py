@@ -133,5 +133,17 @@ if __name__ == '__main__':
     print("Ratios:\n {}".format(sorted(ratios)))
 
     out = np.array(out)
-    s = out[:,0] * out[:,1]
-    print(s)
+
+
+    dtype = [('w', float), ('h', float), ('s', float)]
+    values = []
+
+
+    for w,h in out:
+        values.append ((w, h ,w*h))
+
+    a = np.array(values, dtype=dtype)  # create a structured array
+    a = np.sort(a, order='s')
+
+    print(a)
+

@@ -2,13 +2,16 @@ import torch
 import torch.nn as nn
 from src.layers import conv_sets,pred_module_v3,up_sample
 from src.box_coder import group_decoder,gen_yolo_box
-from src.loss import yolo_loss
+from src.loss import yolov3_loss
 from src.darknet53 import darknet53
 from src.utils import load_conv_bn,load_conv
+from collections import Counter
+
+
 
 class YOLOv3(nn.Module):
 
-    def __init__(self,basenet,anchor,train,featmap_size,cls_num=20):
+    def __init__(self,basenet,anchor,do_detect,featmap_size,cls_num=20):
         super(YOLOv3, self).__init__()
 
         self.cls_num = cls_num
@@ -26,16 +29,16 @@ class YOLOv3(nn.Module):
         self.convsets3 = conv_sets(256+128, 256, 128)
         self.pred_small_obj = pred_module_v3(128,256, self.cls_num, self.bbox_num)
 
-        self.training = train
+        self.do_detect = do_detect
 
         self.loss = []
 
 
-        if self.training:
-            for i in range(len(anchor)):
-                self.loss.append(yolo_loss(anchor[i],featmap_size[i],l_coord=5, object_scale=2, noobject_scale=1))
+        if self.do_detect:
+            self.decoder = group_decoder(anchor, cls_num, featmap_size, conf=0.1)
         else:
-            self.decoder = group_decoder(anchor, cls_num , featmap_size,conf=0.1)
+            for i in range(len(anchor)):
+                self.loss.append(yolov3_loss(anchor[i],featmap_size[i],l_coord=3, object_scale=1, noobject_scale=1))
 
     def load_part(self,buf,start,part):
         for idx,m in enumerate(part.modules()):
@@ -103,27 +106,33 @@ class YOLOv3(nn.Module):
         pred.append(self.pred_small_obj(layer3))
 
 
-        if self.training:
+        if self.detect:
+            pred = self.decoder(pred)
+        else:
             loss_info = {}
             loss = 0
             for i in range(len(pred)):
                 loss_temp,loss_info_temp = self.loss[i](pred[i],target[i])
                 loss += loss_temp
-                loss_info.update(loss_info_temp)
+                if i == 0:
+                    loss_info.update(loss_info_temp)
+                else:
+                    for k, v in loss_info_temp.items():
+                        loss_info[k] += v
+
 
             loss_info['mean_iou'] /= len(pred)
             loss_info['recall_50'] /= len(pred)
             loss_info['recall_75'] /= len(pred)
 
             return loss,loss_info
-        else:
-            pred = self.decoder(pred)
+
             return pred
 
-def build_yolov3(cls_num, anchor, featmap_size, train=False, pretrained=None):
+def build_yolov3(cls_num, anchor, featmap_size, do_detect=True, pretrained=None):
     basenet = darknet53()
     basenet.load_weight(pretrained)
-    net = YOLOv3(basenet,anchor,train,featmap_size,cls_num)
+    net = YOLOv3(basenet,anchor,do_detect,featmap_size,cls_num)
 
     return net
 if __name__ == '__main__':
