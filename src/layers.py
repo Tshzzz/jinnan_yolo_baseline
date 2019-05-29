@@ -50,7 +50,7 @@ class pred_module(nn.Module):
 
     def forward(self, x):
         pred_cls = self.pre_cls_layer(x).permute(0, 2, 3, 1)
-        pred_cls = pred_cls.view((pred_cls.shape[0], pred_cls.shape[1], pred_cls.shape[2], self.bbox_num, -1))
+        pred_cls = pred_cls.view((pred_cls.shape[0], pred_cls.shape[1], pred_cls.shape[2], self.bbox_num, -1)).sigmoid()
 
         pred_loc = self.pre_loc_layer(x).permute(0, 2, 3, 1)
         pred_loc = pred_loc.view((pred_cls.shape[0], pred_cls.shape[1], pred_cls.shape[2], self.bbox_num, -1))
@@ -84,7 +84,7 @@ class pred_module_v3(nn.Module):
         prediction = prediction.transpose(1, 2).contiguous()
         prediction = prediction.view(B, feat_size , feat_size , self.bbox_num, 5+self.cls_num)
 
-        pred_cls = prediction[:,:,:,:,5:].sigmoid()
+        pred_cls = prediction[:,:,:,:,5:]#.sigmoid()
         pred_loc = prediction[:,:,:,:,0:4]
         pred_loc[:,:,:,:,0:2] = pred_loc[:,:,:,:,0:2].sigmoid()
 

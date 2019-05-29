@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from src.layers import conv_sets,pred_module_v3,up_sample
 from src.box_coder import group_decoder,gen_yolo_box
-from src.loss import yolov3_loss
+from src.loss import yolov3_loss,yolo_loss
 from src.darknet53 import darknet53
 from src.utils import load_conv_bn,load_conv
 from collections import Counter
@@ -38,7 +38,7 @@ class YOLOv3(nn.Module):
             self.decoder = group_decoder(anchor, cls_num, featmap_size, conf=0.1)
         else:
             for i in range(len(anchor)):
-                self.loss.append(yolov3_loss(anchor[i],featmap_size[i],l_coord=3, object_scale=1, noobject_scale=1))
+                self.loss.append(yolo_loss(anchor[i],featmap_size[i],3,1,1))
 
     def load_part(self,buf,start,part):
         for idx,m in enumerate(part.modules()):
@@ -106,8 +106,9 @@ class YOLOv3(nn.Module):
         pred.append(self.pred_small_obj(layer3))
 
 
-        if self.detect:
+        if self.do_detect:
             pred = self.decoder(pred)
+            return pred
         else:
             loss_info = {}
             loss = 0
@@ -127,7 +128,7 @@ class YOLOv3(nn.Module):
 
             return loss,loss_info
 
-            return pred
+
 
 def build_yolov3(cls_num, anchor, featmap_size, do_detect=True, pretrained=None):
     basenet = darknet53()
@@ -167,11 +168,8 @@ if __name__ == '__main__':
     height = img.shape[0]
 
     img = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-
     img = transform(img).unsqueeze(0).cuda()
-
     pred_boxes, pred_conf = net(img)
-
 
     for j in range(len(pred_boxes)):
 

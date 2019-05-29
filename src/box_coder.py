@@ -9,21 +9,39 @@ from src.utils import py_cpu_nms,bbox_iou
 
 
 def gen_yolo_box(featmaps,anchor_wh):
-
     #featmaps = [b,c,h,w]
-
     output = np.zeros((featmaps[0], featmaps[1], len(anchor_wh), 4))
-
-
     for i in range(featmaps[0]):
         for j in range(featmaps[1]):
             cx = (j ) #/ featmaps[0]
             cy = (i ) #/ featmaps[1]
-
             for k,(w,h) in enumerate(anchor_wh):
                 output[i,j,k,:] = [cx, cy, w , h ]
-
     return output
+
+
+def gen_yolo_anchor_tensor(featmaps,anchor_wh):
+    assert featmaps[0] == featmaps[1]
+
+    box_num = len(anchor_wh)
+    feat_len = featmaps[0]
+
+    anchor_wh = torch.Tensor(anchor_wh)
+
+    x = torch.linspace(0,featmaps[0]-1,featmaps[0])
+    x = x.repeat(feat_len).view(-1,feat_len).unsqueeze(2)
+
+    y = torch.linspace(0,featmaps[0]-1,featmaps[0]).view(-1,1)
+    y = y.repeat(1,feat_len).unsqueeze(2)
+
+    cc = torch.cat((x,y),2).unsqueeze(2)
+    cc = cc.repeat(1,1,box_num,1)
+    anchor_wh = anchor_wh.unsqueeze(0).unsqueeze(0)
+    anchor_wh = anchor_wh.repeat(feat_len,feat_len,1,1)
+    dddd = torch.cat((cc,anchor_wh),-1)
+
+    return dddd
+
 
 
 class yolo_box_encoder(object):
@@ -37,9 +55,7 @@ class yolo_box_encoder(object):
 
     def __call__(self,bs):
         #global tw_a,tw_b
-
         # b,c,h,w -> b,c,x,y
-
         bb_class = np.zeros((self.featmap_size[0],self.featmap_size[1],self.boxes_num,self.class_num))
         bb_boxes = np.zeros((self.featmap_size[0], self.featmap_size[1], self.boxes_num, 4))
         bb_conf = np.zeros((self.featmap_size[0],self.featmap_size[1],self.boxes_num,1))
@@ -58,12 +74,8 @@ class yolo_box_encoder(object):
                 gt = np.array([[0,0,bs[i,2],bs[i,3]]])
                 ious.append(bbox_iou(anchor_, gt)[0])
 
-
             selected_ = np.argsort(ious)[::-1]
-
             for kk,selected_anchor in enumerate(selected_):
-
-
                 if  bb_conf[local_y,local_x, selected_anchor,0] == 0 and bs[i,2]>0.02 and bs[i,3]>0.02 :
 
                     tx =  (bs[i, 0] + bs[i, 2] / 2) * self.featmap_size[0] \
@@ -93,6 +105,7 @@ class yolo_box_decoder(object):
     def __init__(self, anchor, class_num,featmap_size,conf=0.05,nms_thresh=0.5):
         self.class_num = class_num#
         self.anchor = torch.from_numpy(gen_yolo_box(featmap_size, anchor)).float()
+        self.anchor_wh = anchor
         self.boxes_num = len(anchor)
         self.featmap_size = featmap_size
         self.conf_thresh = conf
@@ -103,14 +116,14 @@ class yolo_box_decoder(object):
         pred_cls, pred_conf, pred_bboxes = pred
         featmap_size = torch.Tensor([pred_cls.shape[1], pred_cls.shape[2]])
 
+        #anchor = gen_yolo_anchor_tensor([pred_cls.shape[1], pred_cls.shape[2]],self.anchor_wh)
+        anchor = self.anchor.repeat(1, 1, 1, 1, 1).cpu().view(-1,4)
 
         pred_cls = pred_cls.cpu().float().view(-1,self.class_num)
         pred_conf = pred_conf.cpu().float().view(-1,1)
         pred_bboxes = pred_bboxes.cpu().float().view(-1,4)
-        anchor = self.anchor.repeat(1, 1, 1, 1, 1).cpu().view(-1,4)
 
         #找最anchor中置信度最高的
-
         pred_mask = (pred_conf>self.conf_thresh).view(-1)
 
         pred_bboxes = pred_bboxes[pred_mask]
@@ -128,10 +141,8 @@ class yolo_box_decoder(object):
             cls_prob = cls_prob[mask_a]
 
             if bbox.shape[0] > 0:
-
                 bbox[:, 2:4] = torch.exp(bbox[:, 2:4]) * anchor_[:, 2:4] / (featmap_size[0:2])
                 bbox[:, 0:2] = (bbox[:, 0:2] + (anchor_[:, 0:2]))/ (featmap_size[0:2]) - bbox[:, 2:4] / 2
-                #bbox[:, 0:2] = (bbox[:, 0:2] + (anchor_[:, 0:2])) - bbox[:, 2:4] / 2
 
                 pre_cls_box = bbox.data.numpy()
                 pre_cls_score = cls_prob.data.view(-1).numpy()
@@ -158,6 +169,7 @@ class single_decoder(object):
 
     def __call__(self, pred):
         pred_cls, pred_conf, pred_bboxes = pred
+        pred_cls = torch.nn.functional.softmax(pred_cls.float(), dim=-1)
         featmap_size = torch.Tensor([pred_cls.shape[1], pred_cls.shape[2]])
 
         pred_cls = pred_cls.cpu().float().view(-1, self.class_num)
@@ -266,43 +278,40 @@ class single_encoder(object):
 
     def __call__(self, bs):
 
-        local_x = int(min(0.999, max(0, bs[0] + bs[2] / 2)) * (self.featmap_size[0]))
-        local_y = int(min(0.999, max(0, bs[1] + bs[3] / 2)) * (self.featmap_size[1]))
+        for i in range(bs.shape[0]):
+            local_x = int(min(0.999, max(0, bs[i, 0] + bs[i, 2] / 2)) * (self.featmap_size[0]) )
+            local_y = int(min(0.999, max(0, bs[i, 1] + bs[i, 3] / 2)) * (self.featmap_size[1]) )
+            ious = []
+            for k in range(self.boxes_num):
+                temp_x, temp_y, temp_w, temp_h = self.anchor[local_y, local_x, k, :]
+                temp_w = temp_w / self.featmap_size[0]
+                temp_h = temp_h / self.featmap_size[1]
+                anchor_ = np.array([[0, 0, temp_w, temp_h]])
+                gt = np.array([[0, 0, bs[i,2], bs[i,3]]])
+                ious.append(bbox_iou(anchor_, gt)[0])
 
-        ious = []
-        for k in range(self.boxes_num):
-            temp_x, temp_y, temp_w, temp_h = self.anchor[local_y, local_x, k, :]
-            temp_w = temp_w / self.featmap_size[0]
-            temp_h = temp_h / self.featmap_size[1]
-            anchor_ = np.array([[0, 0, temp_w, temp_h]])
-            gt = np.array([[0, 0, bs[2], bs[3]]])
-            ious.append(bbox_iou(anchor_, gt)[0])
+            selected_ = np.argsort(ious)[::-1]
 
-        selected_ = np.argsort(ious)[::-1]
+            for kk, selected_anchor in enumerate(selected_):
 
-        for kk, selected_anchor in enumerate(selected_):
+                if self.bb_conf[local_y, local_x, selected_anchor, 0] == 0 and bs[i,2] > 0.02 and bs[i,3] > 0.02:
+                    tx = (bs[i,0] + bs[i,2] / 2) * self.featmap_size[0] - (self.anchor[local_y, local_x, selected_anchor, 0])
+                    ty = (bs[i,1] + bs[i,3] / 2) * self.featmap_size[1] - (self.anchor[local_y, local_x, selected_anchor, 1])
+                    tw = np.log(max(0.01, bs[i,2] * self.featmap_size[0] / self.anchor[local_y, local_x, selected_anchor, 2]))
+                    th = np.log(max(0.01, bs[i,3] * self.featmap_size[1] / self.anchor[local_y, local_x, selected_anchor, 3]))
 
-            if self.bb_conf[local_y, local_x, selected_anchor, 0] == 0 and bs[2] > 0.02 and bs[3] > 0.02:
-                tx = (bs[0] + bs[2] / 2) * self.featmap_size[0] - (self.anchor[local_y, local_x, selected_anchor, 0])
-
-                ty = (bs[1] + bs[3] / 2) * self.featmap_size[1] - (self.anchor[local_y, local_x, selected_anchor, 1])
-
-                tw = np.log(max(0.01, bs[2] * self.featmap_size[0] / self.anchor[local_y, local_x, selected_anchor, 2]))
-                th = np.log(max(0.01, bs[3] * self.featmap_size[1] / self.anchor[local_y, local_x, selected_anchor, 3]))
-
-                self.bb_boxes[local_y, local_x, selected_anchor, :] = np.array([tx, ty, tw, th])
-
-                # 考虑背景 使用 softmax
-                self.bb_class[local_y, local_x, selected_anchor, int(bs[4])] = 1
-                self.bb_conf[local_y, local_x, selected_anchor, 0] = 1
-                break
-
+                    self.bb_boxes[local_y, local_x, selected_anchor, :] = np.array([tx, ty, tw, th])
+                    # 考虑背景 使用 softmax
+                    self.bb_class[local_y, local_x, selected_anchor, int(bs[i,4])] = 1
+                    self.bb_conf[local_y, local_x, selected_anchor, 0] = 1
+                    break
         return
 
 
 class group_encoder(object):
 
     def __init__(self, anchor, class_num, featmap_size):
+        print(featmap_size)
         # anchor B,13,13,5
         self.anchor = anchor
         self.class_num = class_num
@@ -310,19 +319,15 @@ class group_encoder(object):
         self.boxes_num = len(anchor)
         self.featmap_num = len(featmap_size)
 
-
         self.encoder = []
         for i in range(len(anchor)):
             self.encoder.append(single_encoder(anchor[i], class_num, featmap_size[i]))
 
     def __call__(self, bs):
-        # global tw_a,tw_b
-
         # b,c,h,w -> b,c,x,y
-        for i in range(bs.shape[0]):
-
-            for encoder in self.encoder:
-                encoder(bs[i])
+        #for i in range(bs.shape[0]):
+        for encoder in self.encoder:
+            encoder(bs)
 
         target = []
         for encoder in self.encoder:
@@ -333,6 +338,30 @@ class group_encoder(object):
         return target
 
 
+if __name__ == "__main__":
+    featmaps=[26,26]
+    anchor_wh = [[2.8523827, 2.4452496],
+                 [1.3892268, 1.8958333],
+                 [1.6490009, 0.9559666],
+                 [0.7680278, 1.3883946],
+                 [0.5605738, 0.6916781]]
 
+    a = gen_yolo_box(featmaps, anchor_wh)
+    a = torch.Tensor(a)
 
+    b = gen_yolo_anchor_tensor(featmaps, anchor_wh)
 
+    '''
+    anchor_wh = torch.Tensor(anchor_wh)
+    x = torch.linspace(0,featmaps[0]-1,featmaps[0]).view(-1,1)
+    x = x.repeat(1,19).unsqueeze(2)
+    y = torch.linspace(0,featmaps[0]-1,featmaps[0])
+    y = y.repeat(19).view(-1,19).unsqueeze(2)
+    cc = torch.cat((x,y),2).unsqueeze(2)
+    cc = cc.repeat(1,1,5,1)
+    anchor_wh = anchor_wh.unsqueeze(0).unsqueeze(0)
+    anchor_wh = anchor_wh.repeat(19,19,1,1)
+    dddd = torch.cat((cc,anchor_wh),-1)
+    '''
+
+    print(a == b)

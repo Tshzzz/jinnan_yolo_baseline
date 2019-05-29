@@ -99,8 +99,9 @@ class COCODataset(torchvision.datasets.coco.CocoDetection):
 
         bbox_info = torch.cat((box_coord,box_cls),1)
 
-
-        img, bbox = load_data_detection(img, bbox_info.numpy(), self.transforms.transforms[0].size, self.train)
+        img, bbox = load_data_detection(img, bbox_info.numpy(),
+                                        self.transforms.transforms[0].size,
+                                        self.train)
 
 
         if self.box_encoder is not None:

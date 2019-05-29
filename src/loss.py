@@ -55,6 +55,7 @@ class yolo_loss(nn.Module):
 
         label_cls, label_conf, label_bboxes = target
         pred_cls, pred_conf, pred_bboxes = pred
+        #print(label_cls.shape,pred_cls.shape)
 
 
         device = pred_bboxes.device
